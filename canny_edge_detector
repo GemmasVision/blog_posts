@@ -1,0 +1,136 @@
+
+% Gemmas vision - http://gemmasvision.herobo.com/
+
+% Step 1 - Smoothing
+im = imread('kimberly.jpg');     % Read the image
+im = rgb2gray(im);               % Convert to gray scale
+
+g = (1/159)* [2 4 5 4 2 ;        % Define the Gaussian filter
+              4 9 12 9 4 ; 
+              5 12 15 12 5; 
+              4 9 12 9 4; 
+              2 4 5 4 2 ];
+          
+filtered = conv2(im, g);        % Apply a convolution to the image with the
+                                % created filter
+                                
+
+% Step 2 - Finding gradients
+kgx = [-1 0 1 ; -2 0 2; -1 0 1];% Sobel operator, partial derivative along x.
+kgy = [ 1 2 1 ; 0 0 0; -1 -2 -1];% Sobel operator, partial derivative along y.
+
+gx = conv2(filtered, kgx );      % Apply the operators over the image
+gy = conv2(filtered, kgy );
+
+G = sqrt((gx.^2) + (gy.^2));    % Obtain the gradient magnitude
+rho = atan2(gy,gx);             % Obtain the gradient orientation.
+
+% Step 3 - Non-maximum suppression
+rho = abs(rho);
+rho2 = zeros(size(rho));
+
+th = pi/8;
+
+gradient_orientation = 0;
+comp1 = rho <= gradient_orientation + th;
+comp2 = rho > gradient_orientation - th;
+comp = and(comp1, comp2);
+rho2(comp) = 0;
+
+gradient_orientation = pi/4;
+comp1 = rho <= gradient_orientation + th;
+comp2 = rho > gradient_orientation - th;
+comp = and(comp1, comp2);
+rho2(comp) = 1;
+
+gradient_orientation = pi/2;
+comp1 = rho <= gradient_orientation + th;
+comp2 = rho > gradient_orientation - th;
+comp = and(comp1, comp2);
+rho2(comp) = 2;
+
+gradient_orientation = 3*pi/4;
+comp1 = rho <= gradient_orientation + th;
+comp2 = rho > gradient_orientation - th;
+comp = and(comp1, comp2);
+rho2(comp) = 3;
+
+gradient_orientation = pi;
+comp1 = rho <= gradient_orientation + th;
+comp2 = rho > gradient_orientation - th;
+comp = and(comp1, comp2);
+rho2(comp) = 0;
+
+gradient_orientation = pi+(pi/4);
+comp1 = rho <= gradient_orientation + th;
+comp2 = rho > gradient_orientation - th;
+comp = and(comp1, comp2);
+rho2(comp) = 1;
+
+gradient_orientation = 3*pi/2;
+comp1 = rho <= gradient_orientation + th;
+comp2 = rho > gradient_orientation - th;
+comp = and(comp1, comp2);
+rho2(comp) = 2;
+
+gradient_orientation = pi+(3*pi/2);
+comp1 = rho <= gradient_orientation + th;
+comp2 = rho > gradient_orientation - th;
+comp = and(comp1, comp2);
+rho2(comp) = 3;
+
+
+for i=2:size(filtered,1)
+    for j=2:size(filtered,2)
+        if rho2(i,j) == 1
+            if G(i,j) < G(i-1,j-1) || G(i,j) < G(i+1,j+1)
+                G(i,j) = 0;
+            end
+        end
+        if rho2(i,j) == 2
+            if G(i,j) < G(i-1,j) || G(i,j) < G(i+1,j)
+                G(i,j) = 0;
+            end
+        end
+        if rho2(i,j) == 3
+            if G(i,j) < G(i+1,j-1) || G(i,j) < G(i-1,j+1)
+                G(i,j) = 0;
+            end
+        end
+        if rho2(i,j) == 0
+            if G(i,j) < G(i,j-1) || G(i,j) < G(i,j+1)
+                G(i,j) = 0;
+            end
+        end
+    end
+end
+
+% Step 4 - Double threshold
+th1 = 70;
+comp = G < th1;
+G(comp) = 0;
+
+th2 = 90;
+comp1 = G > th1;
+comp2 = G < th2;
+comp = and(comp1, comp2);
+G(comp) = 0.5;
+
+imshow(G)
+th3 = 20;
+CC = bwconncomp(G);
+max_objects = CC.NumObjects;
+image = zeros(size(G));
+
+for k=1:max_objects
+    sz = size(CC.PixelIdxList{k},1);
+    if sz > th3
+        [I,J] = ind2sub(size(G),CC.PixelIdxList{k});
+        for i=1:size(I,1)
+            image(I(i),J(i)) = 1;
+        end
+        
+    end
+end
+imshow(image)
+
